@@ -4,6 +4,8 @@ A working first release of HandyBandi’s operations platform, built from an emp
 
 The operations workspace now follows Housecall Pro inspired navigation, Home/open-item organization, pipeline boards, and customer list interactions. See [the CRM update](docs/CRM-REDESIGN.md) for the researched references, implemented behavior, and metric definitions.
 
+The public site now includes the HandyBandi 2.0 editorial design, database-backed service pages, dedicated residential/commercial audience pages, and a progressive repair-list request with private photos. See [website details](docs/WEBSITE-2.md) and [staging deployment/access setup](docs/DEPLOYMENT.md). Source: https://github.com/Dimak7/hANDYBENDI, branch `codex/handybandi-2`.
+
 ## Open the local preview
 
 - Website: http://localhost:3000

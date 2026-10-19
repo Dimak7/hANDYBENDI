@@ -1,69 +1,56 @@
-# Railway deployment and operational setup
+# Railway staging deployment
 
-Deployment artifacts are supplied, but a Railway deployment and container execution have not been tested here. Docker is not installed in the development environment. Treat the application as staging-only until the remaining features and operational checks in `STATUS.md` are complete. No live HandyBandi domain or existing site should be changed by these setup steps.
+The user approved a separate billable staging environment on 2026-10-19. The existing handybandi.com site and DNS are unchanged.
 
-## Web service and database
+- GitHub: https://github.com/Dimak7/hANDYBENDI
+- Source branch: `codex/handybandi-2`
+- Railway project: HandyBandi Platform (`2b19c586-2d66-49da-bef7-f5699dc17e12`)
+- Environment: staging (`0cde047c-8d8d-47ad-a025-6312aa1ddbb1`)
+- Assigned staging URL: https://handybandi-web-staging.up.railway.app
+- Services: HandyBandi Web, Postgres, HandyBandi Worker
+- Private object storage: QuotePhotos, region iad
 
-1. Create a separate Railway project/environment for staging. Add managed PostgreSQL with a persistent volume and backup policy. Use a separate production database when launching.
-2. Connect this repository as a web service and use the included `Dockerfile`. The image installs pinned dependencies from `pnpm-lock.yaml`, builds the app, and runs as the non-root `node` user. Node 24 is required for the supplied scripts.
-3. Set the variables below. Do not upload the local demo `.env`, `.local-db`, browser artifacts, or owner credentials. They are ignored by Git and Docker.
-4. `railway.json` supplies `pnpm db:migrate` as the pre-deploy command, `pnpm start` as the web start command, and `/api/health` as the readiness path. The app listens on the platform-provided `PORT` and `0.0.0.0` in production.
-5. Run the catalog/config seed once with `DEMO_MODE=false`: `pnpm db:seed`. Runtime scripts accept platform environment variables without requiring a physical `.env` file.
-6. Provision an owner through a trusted service shell/one-off execution using `ADMIN_EMAIL`, `ADMIN_NAME`, and a strong temporary `ADMIN_PASSWORD`, then run `pnpm admin:create`. Remove the provisioning password from service configuration afterward. Configure password reset delivery before sharing staff access.
+Deployment configuration is managed using Railway service settings through the connected Railway tools. New Railway services no longer support the deprecated railway.json/railway.toml configuration system. No legacy config file is left in this repository. For a future configuration-as-code rollout, import the existing project into `.railway/railway.ts`, preview the complete change set, and preserve all resources and secrets. [Current Railway documentation](https://docs.railway.com/infrastructure-as-code).
 
-Railway’s pre-deploy command runs before the new deployment serves requests and can gate deployment on migration success. Keep migrations backward compatible while older instances may still run. [Railway pre-deploy documentation](https://docs.railway.com/deployments/pre-deploy-command).
+## Build and runtime
 
-| Variable                         | Staging/production configuration                                                                                                       |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                   | Railway PostgreSQL connection; restrict access to app/migration roles and use appropriate encrypted transport for external connections |
-| `BETTER_AUTH_SECRET`             | At least 32 random secret characters; independent of local and other environments                                                      |
-| `BETTER_AUTH_URL`                | Exact HTTPS origin for this deployment; keep the configured trusted origin consistent with the hostname users visit                    |
-| `NEXT_PUBLIC_APP_URL`            | Same deployed HTTPS origin, reserved for public link configuration                                                                     |
-| `DEMO_MODE`                      | `false`; seed refuses fictional records when `NODE_ENV=production`                                                                     |
-| `RESEND_API_KEY` / `EMAIL_FROM`  | Verified Resend sender and environment-appropriate key; do not enable broad production recipients during smoke tests                   |
-| `OFFICE_EMAIL`                   | Approved internal recipient for new-request emails; omit until office delivery has been tested                                         |
-| `TURNSTILE_SECRET_KEY`           | Server-side Cloudflare Turnstile secret; production intake fails closed without it                                                     |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Browser widget site key; must be present at build time and allow the staging/production hostname                                       |
-| `TRUST_PROXY`                    | `true` only after verifying the ingress overwrites untrusted `x-forwarded-for`; otherwise leave `false`                                |
+The Dockerfile uses Node 24, pnpm 11.25.0 and the frozen lockfile. It copies pnpm-workspace.yaml before installing so approved native build scripts are available on Linux. It builds the Next standalone server and copies public/static assets into its runtime directory. The image runs as the node user on 0.0.0.0:3000.
 
-Public `NEXT_PUBLIC_*` values are browser-visible and can be embedded at build time. Rebuild when changing them. Secrets must remain server-only. Do not define a dummy credential just to bypass setup checks.
+Web service settings:
 
-## Worker service
+- Dockerfile: `Dockerfile`
+- Pre-deploy command: `pnpm deploy:prepare`
+- Start command: `pnpm start`
+- Readiness: `/api/health`, 120-second timeout
+- Restart policy: on failure
+- GitHub pushes to the linked branch trigger deployment
 
-The outbox needs an actual worker; loading the dashboard does not send queued email or evaluate SLA timers.
+`deploy:prepare` applies the four migrations, seeds the catalog/settings with DEMO_MODE=false, then bootstraps the first owner if none exists. Existing accounts and credentials are never overwritten. Health checks require both database connectivity and initialized business settings/catalog.
 
-Deploy a second service from the same image, with the same database/auth URL and email settings. Override the start command to:
+Worker settings use the same image but start `pnpm worker:loop`, have no public domain, and do not use an HTTP healthcheck. Successful batches are logged every 15 seconds. No transactional email is sent until verified Resend credentials and sender are configured.
 
-```text
-pnpm worker:loop
-```
+## Secrets and initial access
 
-This worker executes a batch every 15 seconds, retries failures, and handles termination. Disable the web healthcheck and web port/domain for the worker service; its process does not expose HTTP. Do not copy the web start/healthcheck settings unchanged. Ensure only trusted operators can alter event payloads or read pending reset/approval links.
+Each environment has an independent random Better Auth secret. The staging owner's unique strong password was generated locally, not copied from the development demo. Initial credentials are in the local ignored `artifacts/staging-access.json`; this file is never committed. ADMIN_PASSWORD should be cleared from the web service after successful one-time provisioning. Future owner/staff provisioning can use the documented CLI through a trusted service console. Password reset needs a configured Resend sender.
 
-For a finite scheduled batch instead, run `pnpm worker` on an external scheduler with an appropriate interval; the command exits after its batch and database disconnect. Railway has platform-specific scheduling intervals and requires scheduled processes to exit; inspect its current constraints before choosing a cron frequency. [Railway cron jobs](https://docs.railway.com/cron-jobs).
+Database variables reference Postgres directly. S3 variables reference QuotePhotos directly, including its access key/secret. These values stay in Railway; bucket credentials were not read into frontend code or committed. Shared variables are not used as an extra reference hop for resource credentials.
 
-Monitor failed events in the owner’s `/app/help` log and infrastructure alerts. There is no UI for retrying terminal failures yet; investigate the cause and use an authorized maintenance action rather than silently resetting attempts in a loop. Email delivery is not confirmed until a configured test recipient receives a real message and provider delivery events are inspected.
+Required runtime variables include DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL, DEMO_MODE=false, and the S3 endpoint/bucket/region/access-key/secret settings. Public build arguments are NEXT_PUBLIC_APP_URL, NEXT_PUBLIC_STAGING, and NEXT_PUBLIC_TURNSTILE_SITE_KEY. Authentication initializes at request time so private runtime secrets do not need to be copied into Docker build arguments.
 
-## Integration readiness
+## Staging protection and launch requirements
 
-**Better Auth:** sign-in, sign-out, active-user access, hashing, session handling, and server role checks were tested locally. Password reset enqueueing is implemented but the full mailbox flow is untested without Resend credentials. Public signup is disabled. Use HTTPS for secure cookies; origin checks reject mutations from a different hostname. The app does not implement MFA yet. [Better Auth Next.js integration](https://better-auth.com/docs/integrations/next).
+This is a testing environment with a visible staging banner, noindex metadata and robots blocking. Use fictional test records only. Cloudflare's official testing keys are used for staging form verification; the server rejects the always-pass test key outside Railway's staging environment. Live bot protection is not configured. Replace both test keys with verified hostname-scoped production keys before accepting real customers. [Cloudflare testing documentation](https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
 
-**Resend:** an actual HTTP adapter is implemented with timeout, a stable idempotency key, retry/backoff, and failure records. The development environment contains no provider key. Confirm domain verification, reply/support address, recipient limits, delivery, bounce processing, and access to failure logs before enabling it. Estimates and reset messages are transactional; there are no promotional campaigns in this release.
+Private photo uploads support authenticated CRM proxy downloads; the S3 adapter is tested separately from local filesystem storage. Original names and EXIF/GPS metadata are discarded. Object lifecycle/orphan cleanup, retention policy and restoration procedures still need operational review.
 
-**Turnstile:** wire both keys, allow the correct hostname, and test a successful challenge and a rejected token against the deployed form. Server verification must remain enabled for public production intake. A configured secret alone is not proof the widget was configured or tested.
+Railway's backup UI reports that creating backups and automated schedules requires the Pro plan. No subscription upgrade was performed. The owner must choose a plan, then enable daily/weekly backups and complete an isolated restore drill before relying on this system for business data. [Backup setup](https://docs.railway.com/guides/postgres-backups-restores).
 
-**Stripe/Twilio/object storage/maps:** not implemented operationally. Environment placeholders reserve names only. Before adding Stripe, use real test-mode checkout, verify signed raw-body webhook payloads, persist event idempotency, reconcile amounts/currency/invoice ownership, and test partial payments/refunds and replayed/out-of-order events. No current endpoint can claim payment success or collect card information. SMS needs consent/suppression/STOP handling; files need private signed access and validation; maps need verified addresses and scoped provider keys.
+No Stripe, Twilio, Resend, Google, Meta or hh.kz account is connected. No paid advertisement or real vacancy has been published. No messages have been sent to real recipients. Monitoring currently consists of Railway runtime/build logs and the database-aware healthcheck; external alert delivery/error reporting is not connected.
 
-## Backups, monitoring, and release gates
+## Verification and rollback
 
-- Enable managed PostgreSQL backups and set recovery-point/recovery-time objectives. Restore a backup into an isolated database and verify auth, estimates, and jobs before handling real business records. No backup is claimed to have been created by this task.
-- Restrict production database access. Migrations should use an appropriate migration role; application credentials should not have unrelated administrative privileges. Encrypt remote transport and storage according to provider configuration.
-- Keep raw customer details, reset/approval URLs, and secrets out of request logs and error tracking. Current application errors log only a failure class; centralized monitoring is still to be integrated.
-- Review queue failures, worker health, repeated auth failures, response latency, database connection pool saturation, and storage growth. Add alert delivery and retention policies.
-- Run the domain/database/browser tests in staging with disposable test data and separate provider credentials. Browser tests are development-only and must not create fictional records in the live business database.
-- Complete the unfinished acceptance scenarios, password-reset delivery, production bot verification, permission review, financial/integration tests, retention controls, and a security review before relying on the system for the entire business.
-- Keep `noindex`/robots restrictions on the app preview. A public SEO migration requires the independent content/URL verification in `BUSINESS-AUDIT.md` and explicit approval to change the live domain.
+`pnpm lint` runs TypeScript and formatting checks. Domain, isolated PostgreSQL, browser and production build checks must pass before release. `scripts/verify-staging.mjs` is restricted to this exact staging domain, reads credentials from the ignored local file, and creates clearly labeled fictional verification records. It checks owner sign-in, anonymous access denial, catalog initialization, persisted requests, idempotent retry and private cloud photo access. Verification output is local/ignored.
 
-## Rollback
+Record deployment-specific results in the release notes. A successful build or assigned domain alone is not proof of working forms, storage, seeded configuration or staff access. Do not claim these without the smoke-test result.
 
-Keep previous deployment images and verified database recovery points. Roll back application code only when its schema expectations remain compatible. Do not automatically reverse data migrations or delete operational records. For a failed migration, stop the rollout, inspect the failure, recover in an isolated environment, and use an explicit corrective migration. Keep the existing public website running until the new platform has met the launch requirements.
+Rollback application images only when their schema remains compatible. Do not reverse data migrations or delete operational records automatically. Before a live launch, finish the remaining modules and security checks in STATUS.md and obtain explicit approval for domain migration.

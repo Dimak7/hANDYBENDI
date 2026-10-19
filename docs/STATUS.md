@@ -1,5 +1,7 @@
 # Implementation status — 2026-10-18
 
+**2026-10-19 update:** the public website redesign, service directory/details, audience pages, progressive multi-task request form, private photo persistence/downloads and sitemap are implemented. [Website scope](WEBSITE-2.md). Separate Railway staging infrastructure and GitHub deployment are now configured; see [current deployment details](DEPLOYMENT.md) for environment and launch limitations. This update supersedes the older photo-upload and public-page gaps in the original matrix below. The later HR, marketing, payment, commercial and hh.kz work remains unfinished.
+
 This release completes a useful foundation and quote-to-job slice. The full five-phase business operating system is unfinished. A model, environment variable, seed record, or read-only screen does not mean its end-to-end module is complete.
 
 The operations UI has since been redesigned around Housecall Pro patterns. [CRM redesign details](CRM-REDESIGN.md) include the new Home, pipeline boards, drag/status updates, customer sorting/column preferences/selection/export, and verification.
