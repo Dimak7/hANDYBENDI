@@ -16,6 +16,8 @@ type Profile = {
   notes: string;
   status: string;
   version: number;
+  country?: string;
+  city?: string;
 };
 const tags = (value: FormDataEntryValue | null) =>
   String(value || "")
@@ -54,6 +56,7 @@ export function OpeningForm() {
   const router = useRouter();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [country, setCountry] = useState("US");
   return (
     <details className="card hiring-create">
       <summary>Create an opening</summary>
@@ -71,6 +74,18 @@ export function OpeningForm() {
               requiredSkills: tags(data.get("skills")),
               minimumYears: Number(data.get("years")),
               requiredAvailability: data.getAll("availability"),
+              country,
+              city: data.get("city"),
+              workplace: data.get("workplace"),
+              currency: data.get("currency"),
+              salaryMin: data.get("salaryMin") === "" ? null : Number(data.get("salaryMin")),
+              salaryMax: data.get("salaryMax") === "" ? null : Number(data.get("salaryMax")),
+              salaryPeriod: data.get("salaryPeriod"),
+              language: data.get("language"),
+              questions: String(data.get("questions") || "")
+                .split("\n")
+                .map((q) => q.trim())
+                .filter(Boolean),
             });
             router.push(`/app/employees/applicants?opening=${result.id}`);
             router.refresh();
@@ -109,7 +124,90 @@ export function OpeningForm() {
             <input name="years" type="number" required min={0} max={60} defaultValue={0} />
           </label>
         </div>
+        <div className="hiring-form-grid">
+          <label>
+            Hiring market
+            <select value={country} onChange={(e) => setCountry(e.target.value)}>
+              <option value="US">United States</option>
+              <option value="KZ">Kazakhstan</option>
+            </select>
+          </label>
+          <label>
+            Job location
+            <input
+              name="city"
+              key={`city-${country}`}
+              required
+              maxLength={120}
+              defaultValue={country === "US" ? "Chicago" : "Almaty"}
+            />
+          </label>
+          <label>
+            Work arrangement
+            <select name="workplace">
+              <option value="ONSITE">On site</option>
+              <option value="HYBRID">Hybrid</option>
+              <option value="REMOTE">Remote</option>
+            </select>
+          </label>
+          <label>
+            Application language
+            <select
+              name="language"
+              key={`lang-${country}`}
+              defaultValue={country === "US" ? "en" : "ru"}
+            >
+              <option value="en">English</option>
+              <option value="ru">Русский</option>
+              <option value="kk">Қазақша</option>
+            </select>
+          </label>
+          <label>
+            Pay currency
+            <select
+              name="currency"
+              key={`currency-${country}`}
+              defaultValue={country === "US" ? "USD" : "KZT"}
+            >
+              <option value="USD">USD</option>
+              <option value="KZT">KZT</option>
+            </select>
+          </label>
+          <label>
+            Pay period
+            <select
+              name="salaryPeriod"
+              key={`period-${country}`}
+              defaultValue={country === "US" ? "HOUR" : "MONTH"}
+            >
+              <option value="HOUR">Per hour</option>
+              <option value="MONTH">Per month</option>
+              <option value="YEAR">Per year</option>
+            </select>
+          </label>
+          <label>
+            Minimum pay (optional)
+            <input name="salaryMin" type="number" min={0} max={100000000} />
+          </label>
+          <label>
+            Maximum pay (optional)
+            <input name="salaryMax" type="number" min={0} max={100000000} />
+          </label>
+        </div>
+        <label>
+          Application questions (one per line, up to 5)
+          <textarea
+            name="questions"
+            rows={3}
+            maxLength={1204}
+            placeholder="What relevant projects have you completed?"
+          />
+        </label>
         <Availability label="Required availability" />
+        <p className="hiring-muted">
+          Saved openings start as drafts. Publish to the careers page when ready. External job
+          boards require a connected employer account.
+        </p>
         <p className="hiring-muted">
           Set at least one requirement. Match scores use skills (60%), experience (25%), and
           availability (15%); unused criteria are excluded and the remaining weights rescaled.
@@ -126,7 +224,15 @@ export function OpeningForm() {
     </details>
   );
 }
-export function ApplicantForm({ openingId, profile }: { openingId: string; profile?: Profile }) {
+export function ApplicantForm({
+  openingId,
+  profile,
+  initialCountry = "US",
+}: {
+  openingId: string;
+  profile?: Profile;
+  initialCountry?: string;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -151,6 +257,8 @@ export function ApplicantForm({ openingId, profile }: { openingId: string; profi
             resumeText: data.get("resumeText"),
             source: data.get("source"),
             notes: data.get("notes"),
+            country: data.get("country"),
+            city: data.get("city"),
             ...(profile ? { status: data.get("status"), version: profile.version } : {}),
           };
           const result = await send(
@@ -168,6 +276,17 @@ export function ApplicantForm({ openingId, profile }: { openingId: string; profi
       }}
     >
       <div className="hiring-form-grid">
+        <label>
+          Applicant country
+          <select name="country" defaultValue={profile?.country || initialCountry}>
+            <option value="US">United States</option>
+            <option value="KZ">Kazakhstan</option>
+          </select>
+        </label>
+        <label>
+          Applicant city
+          <input name="city" maxLength={120} defaultValue={profile?.city} />
+        </label>
         <label>
           Full name
           <input name="name" required minLength={2} maxLength={120} defaultValue={profile?.name} />

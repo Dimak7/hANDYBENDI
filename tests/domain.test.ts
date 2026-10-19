@@ -126,3 +126,20 @@ test("job status flow prevents skipping approval and sign-off", () => {
 test("empty and malicious public submissions are rejected", () => {
   assert.equal(intakeSchema.safeParse({ name: "x", website: "spam" }).success, false);
 });
+
+test("applicant CSV handles quoted content and rejects malformed or oversized imports", async () => {
+  const { parseApplicantCsv } = await import("../src/lib/hiring-csv");
+  const rows = parseApplicantCsv(
+    'name,email,phone,experience\r\n"Test, Candidate",test@example.test,+77015550101,"Support with ""quoted"" text\nand multiline details"',
+  );
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].name, "Test, Candidate");
+  assert.match(rows[0].experience, /"quoted" text\nand multiline/);
+  assert.throws(() => parseApplicantCsv('name,email,phone,experience\n"unclosed'), /Unclosed/);
+  assert.throws(
+    () => parseApplicantCsv("name,email,email,phone,experience\na,b,c,d,e"),
+    /duplicate/,
+  );
+  assert.throws(() => parseApplicantCsv("name,email,phone,experience\na,b,c"), /wrong number/);
+  assert.throws(() => parseApplicantCsv("x".repeat(24001)), /24 KB/);
+});

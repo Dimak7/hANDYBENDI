@@ -1,22 +1,50 @@
-# Applicants in the people workspace
+# Hiring in one HandyBandi workspace
 
-Open **More → Applicants & hiring**, or **Employees → Applicants & hiring**. The route is `/app/employees/applicants` and uses the existing workspace login. Only active owners and managers can access applicant profiles or write hiring data; every server route checks this permission.
+Open **Employees → Applicants & hiring** at `/app/employees/applicants`. Only active owners and managers can access applicant data, imports, publication controls, or the cross-market inbox. Each API checks permissions on the server.
 
-1. Create an opening with its role description and required skills, relevant years, and availability windows.
-2. Add an applicant with contact details, skills, experience, availability, source, resume/application text, and internal notes. Profiles persist in PostgreSQL. Duplicate email addresses for the same opening are rejected; the same person may apply to another opening.
-3. The opening shows the top three active candidates plus a searchable full applicant table. Every card and row opens the complete profile.
-4. Edit profiles and advance them through new, screening, interview, offer, hired, rejected, or withdrawn. Inactive candidates remain searchable but leave the shortlist. Concurrent stale edits return a conflict instead of overwriting newer data. Creation and edits write audit records atomically.
+## United States and Kazakhstan
+
+Create an opening with its hiring market (US or KZ), city, on-site/hybrid/remote arrangement, USD or KZT pay range and hourly/monthly/yearly period. The form defaults to Chicago/USD/hour/English for the US and Almaty/KZT/month/Russian for Kazakhstan; these are editable defaults, not confirmed company vacancies. Up to five unique custom screening questions can be added. Public form labels support English, Russian and Kazakh; role descriptions and custom questions retain the language entered by staff.
+
+Openings start as private drafts. **Publish to careers page** makes an active opening available at `/careers/[id]` and on `/careers`. Unpublish removes the listing; close also stops application intake. Reopening returns it to a draft. Existing applicants remain available when an opening closes. Publication and intake use a row lock to serialize closure against submissions. Editing an existing opening's criteria is not yet implemented.
+
+## Applications and profiles
+
+Candidates apply without a workspace login. Their contact information, country/city, structured skills, experience, availability, pasted resume text, screening answers and timestamped application consent are stored in PostgreSQL. The application form explains that the hiring workspace is hosted in the US and provides a correction/deletion contact. Before collecting real Kazakhstan applicants, the employer must confirm their privacy notice and cross-border data handling requirements. Staging remains fictional testing only.
+
+Public intake checks origin, bounded request size, a honeypot, persistent rate limits, and Turnstile in production. Staging uses official Turnstile test keys, not production bot protection. Duplicate email addresses within an opening return the same generic acknowledgement without disclosing or overwriting a saved profile, stage, notes, or screening answers. Candidates may apply to different openings. There are no fabricated applicant profiles.
+
+**All markets · applicant inbox** opens `/app/employees/applicants/inbox`, with country, opening, source, stage, and name/email filters. It includes closed openings and paginates 50 profiles at a time. Country is the applicant's residence; opening market is separate. Candidate location and language do not enter the ranking calculation.
+
+Each opening retains its top three active candidates and full searchable profile table. Profile editors support new, screening, interview, offer, hired, rejected and withdrawn stages with stale-write protection. Hiring a candidate records an outcome; it does not provision an employee login. Applicants' screening answers, consent, source, and activity are visible only in the authorized workspace.
 
 ## Match calculation
 
-Skills contribute 60%, relevant experience 25%, and availability 15%. Skill and availability labels use trimmed, case-insensitive exact matches. Experience is capped at the opening’s minimum; extra years do not earn additional points. Unconfigured criteria are removed and the remaining weights rescaled. At least one criterion must be set when creating an opening. Each profile shows its match explanation and missing skills. Scores are calculated from current persisted fields, not stored AI assessments.
+Skills contribute 60%, relevant experience 25%, availability 15%. Labels use trimmed, case-insensitive exact matches. Experience is capped at the opening minimum. Unused criteria are excluded and remaining weights rescaled. At least one criterion is required. Resume prose, screening answers, names, contact details, country, source and notes do not enter the score. Claims require staff verification; the shortlist does not decide whom to hire. Ties share a rank with stable display ordering.
 
-Names, email, phone, free-text experience/resume content, source, and internal notes do not enter the score. Recorded skills and years are claims that staff must verify. Equal scores share a rank, with stable record ID ordering for display; a notice appears if more applicants tie at the three-card boundary. Search and stage filters affect only the full list, not the shortlist.
+## External sources: actual status
 
-## Current scope
+The **Job boards & publishing** page at `/app/employees/hiring-connections` explicitly distinguishes the working careers intake from disconnected external services.
 
-There are no fabricated or automatically imported applicants. Staff enter or paste application data. Resume file uploads, automated parsing, public application intake, email/job-board integrations, interviews/calendar booking, and criteria editing/closing an opening in the UI remain future work. Profiles can be edited, and outcomes tracked. Marking a profile hired does not create an employee account: existing staff provisioning is still a separate step. All operational staff pages remain inside the same workspace.
+- HandyBandi careers publication and application intake: implemented.
+- hh.kz employer account: the user says their client has one; account access is not verified or connected here.
+- hh.kz developer registration, approved API access, OAuth, encrypted tokens, vacancy publishing and applicant synchronization: not implemented or tested.
+- Indeed and LinkedIn employer/partner integrations: not connected, implemented or tested.
+- Recruiting-provider subscription: none purchased.
+- No external job advertisement has been published, and no job-board charges have been incurred by these changes.
 
-## Validation
+Staff can currently create a board posting manually and include the published careers application link. Candidates using it enter this workspace directly. The source question is applicant-reported and is labeled as such, not represented as verified API attribution.
 
-Domain tests cover normalization, weighted scoring, omitted criteria, experience caps, stable ties, inactive exclusion and role grants. Isolated PostgreSQL tests cover persistent profiles, duplicate application checks, stale versions, audit writes and closed-opening intake. Browser tests exercise opening/applicant entry, profile editing, shortlist replacement, search, permission enforcement and responsive layouts.
+## CSV import
+
+Inside an active opening, expand **Import applicants from a job board**. Convert an authorized board export to these columns:
+
+```csv
+name,email,phone,country,city,skills,years,availability,experience,resume
+```
+
+Required columns: name, email, phone, experience. Country uses US/KZ; omitted country defaults to the opening market. Use semicolons for multiple skills or availability values (Weekdays;Evenings;Weekends). Up to 100 records and 24,000 characters per request, also subject to the API's 32 KB JSON limit. Quoted commas, escaped quotes and embedded newlines are supported. Unexpected/duplicate headers and malformed CSV are rejected. Row-level validation reports imported, duplicate, and invalid results; already imported rows are safely skipped if retried. Imports retain the selected board source and audit actor. Existing profiles are never overwritten. This is manual intake, not an automatic sync or a guarantee that every board provides exports.
+
+## Verification
+
+Domain tests validate weighted scoring and CSV parsing. Isolated PostgreSQL tests cover draft/published/closed gating, consent, question validation, concurrent duplicate applications, preserved profiles, and existing workflow behavior. Browser tests cover US/KZ openings, public applications, private screening answers, cross-market filters, duplicate-safe imports, permission enforcement, and mobile/tablet/desktop layouts. No external integration is claimed to be verified.

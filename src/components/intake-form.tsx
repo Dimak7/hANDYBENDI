@@ -19,7 +19,7 @@ declare global {
     };
   }
 }
-function SecurityCheck({ onToken }: { onToken: (token: string) => void }) {
+export function SecurityCheck({ onToken }: { onToken: (token: string) => void }) {
   const element = useRef<HTMLDivElement>(null);
   const widget = useRef<string | undefined>(undefined);
   const render = () => {

@@ -118,7 +118,7 @@ export function PublicFooter() {
           <Link href="/service-areas">Service areas</Link>
           <Link href="/contact">Contact</Link>
           <a href="https://handybandi.com/blog/">Maintenance journal</a>
-          <a href="https://handybandi.com/careers/">Careers</a>
+          <Link href="/careers">Careers</Link>
           <Link href="/login">Customer & team login</Link>
         </div>
         <div className="site-footer-bottom">

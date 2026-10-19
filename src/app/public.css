@@ -1086,3 +1086,127 @@
     transition: none !important;
   }
 }
+.career-layout {
+  max-width: 1240px;
+  margin: auto;
+  padding: 64px 28px 100px;
+}
+.career-layout h1 {
+  font-size: clamp(38px, 5vw, 70px);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  margin: 24px 0;
+  overflow-wrap: anywhere;
+}
+.career-layout > p {
+  max-width: 720px;
+}
+.career-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 48px;
+  margin-top: 32px;
+}
+.career-role,
+.career-apply {
+  padding: 28px;
+}
+.career-layout .hiring-form input,
+.career-layout .hiring-form select,
+.career-layout .hiring-form textarea,
+.career-apply > label select,
+.career-layout .hiring-filter select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #b9b8b0;
+  border-radius: 6px;
+  padding: 12px;
+  background: white;
+  color: #242620;
+}
+.career-apply > label {
+  display: grid;
+  gap: 8px;
+}
+.career-consent {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14px;
+}
+.career-layout .career-consent input {
+  width: 18px;
+  flex: none;
+  margin-top: 4px;
+}
+.career-layout .hiring-availability input {
+  width: auto;
+}
+.career-layout .hiring-form {
+  display: grid;
+  gap: 20px;
+  padding-top: 20px;
+}
+.career-layout .hiring-form label,
+.career-layout .hiring-filter label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  font-size: 14px;
+}
+.career-layout .hiring-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.career-layout .hiring-availability {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #b9b8b0;
+  border-radius: 6px;
+  min-width: 0;
+}
+.career-layout .hiring-availability label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.career-layout .hiring-filter {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-block: 24px;
+}
+.career-layout .hiring-form textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+.career-layout .hiring-form .button {
+  justify-self: start;
+}
+.career-apply h2 {
+  font-size: clamp(24px, 3vw, 32px);
+  margin: 24px 0 4px;
+}
+.career-role h2 {
+  font-size: 28px;
+}
+@media (max-width: 800px) {
+  .career-layout .hiring-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .career-detail {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .career-layout {
+    padding: 36px 18px 90px;
+  }
+  .career-apply {
+    padding: 20px;
+  }
+}

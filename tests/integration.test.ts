@@ -28,7 +28,14 @@ const {
 const { createJob, scheduleJob, transitionJob } = await import("../src/lib/jobs");
 const { customerScope } = await import("../src/lib/permissions");
 const { runWorkerBatch } = await import("../src/lib/worker");
-const { createOpening, createApplicant, updateApplicant } = await import("../src/lib/hiring");
+const {
+  createOpening,
+  createApplicant,
+  updateApplicant,
+  setOpeningPublication,
+  applyToOpening,
+  openingSchema,
+} = await import("../src/lib/hiring");
 const id = randomUUID();
 await db.businessSettings.create({ data: { id: "business", appointmentBufferMinutes: 30 } });
 await db.serviceCategory.create({
@@ -459,4 +466,82 @@ test("persistent rate limiting and SLA notifications are deduplicated", async ()
     count,
   );
   assert.ok(count > 0);
+});
+
+test("international careers publication, screening answers and duplicate safety", async () => {
+  const opening = await createOpening(
+    {
+      title: "Kazakhstan test role",
+      description: "Fictional remote support role for test only.",
+      requiredSkills: ["support"],
+      minimumYears: 1,
+      requiredAvailability: [],
+      country: "KZ",
+      city: "Almaty",
+      workplace: "REMOTE",
+      currency: "KZT",
+      salaryMin: 200000,
+      salaryMax: 300000,
+      salaryPeriod: "MONTH",
+      language: "ru",
+      questions: ["Describe your relevant work."],
+    },
+    id,
+  );
+  assert.equal(opening.published, false);
+  assert.equal(opening.country, "KZ");
+  const application = {
+    openingId: opening.id,
+    name: "Fictional applicant",
+    email: "kz-test@example.test",
+    phone: "+77015550101",
+    skills: ["support"],
+    relevantYears: 2,
+    availability: [],
+    experience: "Fictional support experience for testing.",
+    resumeText: "Private resume text",
+    country: "KZ",
+    city: "Almaty",
+    consent: true,
+    source: "hh.kz",
+    answers: ["Fictional support projects."],
+  };
+  await assert.rejects(() => applyToOpening(application), /no longer accepting/);
+  await setOpeningPublication(opening.id, { published: true, active: true }, id);
+  await assert.rejects(
+    () => applyToOpening({ ...application, answers: [] }),
+    /every application question/,
+  );
+  await assert.rejects(() => applyToOpening({ ...application, consent: false }));
+  await Promise.all([applyToOpening(application), applyToOpening(application)]);
+  const profiles = await db.applicant.findMany({ where: { openingId: opening.id } });
+  assert.equal(profiles.length, 1);
+  assert.equal(profiles[0].country, "KZ");
+  assert.ok(profiles[0].consentAt);
+  assert.deepEqual(profiles[0].answers, {
+    "Describe your relevant work.": "Fictional support projects.",
+  });
+  assert.equal(profiles[0].source, "hh.kz (applicant-reported)");
+  await applyToOpening({
+    ...application,
+    name: "Overwrite attempt",
+    resumeText: "Different resume",
+  });
+  assert.equal(
+    (await db.applicant.findUniqueOrThrow({ where: { id: profiles[0].id } })).resumeText,
+    "Private resume text",
+  );
+  await setOpeningPublication(opening.id, { published: true, active: false }, id);
+  assert.equal(
+    (await db.hiringOpening.findUniqueOrThrow({ where: { id: opening.id } })).published,
+    false,
+  );
+  await assert.rejects(
+    () => applyToOpening({ ...application, email: "other@example.test" }),
+    /no longer accepting/,
+  );
+  assert.equal(
+    openingSchema.safeParse({ ...opening, salaryMin: 300, salaryMax: 200 }).success,
+    false,
+  );
 });

@@ -1,4 +1,34 @@
 @import "tailwindcss";
+
+.career-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 20px;
+  margin-block: 24px;
+}
+.hiring-publication {
+  border-top: 1px solid #dce3ed;
+  margin-top: 20px;
+  padding-top: 16px;
+}
+.hiring-publication label {
+  display: grid;
+  gap: 6px;
+  margin-block: 12px;
+}
+.hiring-publication input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+.hiring-csv-template {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 12px;
+  background: #f1f5f9;
+}
 :root {
   --ink: #20332c;
   --muted: #7d8982;

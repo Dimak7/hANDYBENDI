@@ -7,6 +7,7 @@ import { TeamTabs } from "@/components/team-tabs";
 import { ApplicantForm } from "@/components/hiring-forms";
 import { PageHeader, Badge } from "@/components/ui";
 import { date } from "@/lib/format";
+import { countryName } from "@/lib/hiring-display";
 export default async function ApplicantProfile({ params }: { params: Promise<{ id: string }> }) {
   await requireUser("hiring:write");
   const { id } = await params;
@@ -55,6 +56,27 @@ export default async function ApplicantProfile({ params }: { params: Promise<{ i
               profile={applicant}
             />
           </details>
+          <p>
+            {countryName(applicant.country)}
+            {applicant.city ? ` · ${applicant.city}` : ""}
+          </p>
+          {applicant.consentAt && (
+            <p className="hiring-muted">
+              Application consent recorded {date(applicant.consentAt, { year: "numeric" })}. Stored
+              in the company’s US-hosted workspace.
+            </p>
+          )}
+          {Object.entries((applicant.answers || {}) as Record<string, string>).length > 0 && (
+            <section>
+              <h3>Application answers</h3>
+              {Object.entries(applicant.answers as Record<string, string>).map(([q, a]) => (
+                <div key={q}>
+                  <strong>{q}</strong>
+                  <p className="hiring-prewrap">{a}</p>
+                </div>
+              ))}
+            </section>
+          )}
           <h3>Skills</h3>
           <div className="employee-skills">
             {applicant.skills.length
@@ -96,7 +118,7 @@ export default async function ApplicantProfile({ params }: { params: Promise<{ i
                 <strong>{a.action === "CREATED" ? "Profile added" : "Profile updated"}</strong>
                 <br />
                 <small>
-                  {a.actor?.name || "Staff"} · {date(a.createdAt, { year: "numeric" })}
+                  {a.actor?.name || "Careers website"} · {date(a.createdAt, { year: "numeric" })}
                 </small>
               </p>
             ))}

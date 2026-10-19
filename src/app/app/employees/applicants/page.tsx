@@ -6,15 +6,28 @@ import { TeamTabs } from "@/components/team-tabs";
 import { OpeningForm, ApplicantForm } from "@/components/hiring-forms";
 import { candidateFit, rankCandidates, applicantStatuses } from "@/lib/hiring-score";
 import { initials, date } from "@/lib/format";
+import { HiringPublication, ApplicantImport } from "@/components/hiring-publication";
+import { countryName, payLabel } from "@/lib/hiring-display";
 export default async function Applicants({
   searchParams,
 }: {
-  searchParams: Promise<{ opening?: string; q?: string; status?: string }>;
+  searchParams: Promise<{
+    opening?: string;
+    q?: string;
+    status?: string;
+    country?: string;
+    source?: string;
+  }>;
 }) {
   await requireUser("hiring:write");
   const params = await searchParams;
-  const openings = await db.hiringOpening.findMany({ orderBy: { createdAt: "desc" } });
-  const opening = params.opening ? openings.find((o) => o.id === params.opening) : openings[0];
+  const openings = await db.hiringOpening.findMany({
+    where: ["US", "KZ"].includes(params.country || "") ? { country: params.country } : {},
+    orderBy: { createdAt: "desc" },
+  });
+  const opening = params.opening
+    ? openings.find((o) => o.id === params.opening) || (params.country ? openings[0] : undefined)
+    : openings[0];
   const applicants = opening
     ? await db.applicant.findMany({
         where: { openingId: opening.id },
@@ -30,7 +43,8 @@ export default async function Applicants({
           .join(" ")
           .toLowerCase()
           .includes(q)) &&
-      (!params.status || a.status === params.status),
+      (!params.status || a.status === params.status) &&
+      (!params.source || a.source === params.source),
   );
   return (
     <>
@@ -40,7 +54,26 @@ export default async function Applicants({
       />
       <TeamTabs active="applicants" />
       <div className="hiring-toolbar">
+        <Link className="button secondary" href="/app/employees/applicants/inbox">
+          All markets · applicant inbox
+        </Link>
+        <Link className="button secondary" href="/app/employees/hiring-connections">
+          Job boards & publishing
+        </Link>
+        <Link className="button secondary" href="/careers">
+          Public careers page
+        </Link>
+      </div>
+      <div className="hiring-toolbar">
         <form method="get" className="hiring-opening-picker">
+          <label>
+            Hiring market
+            <select name="country" defaultValue={params.country || ""}>
+              <option value="">All markets</option>
+              <option value="US">United States</option>
+              <option value="KZ">Kazakhstan</option>
+            </select>
+          </label>
           <label>
             Hiring opening
             <select name="opening" defaultValue={opening?.id || ""} disabled={!openings.length}>
@@ -48,6 +81,7 @@ export default async function Applicants({
               {openings.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.title}
+                  {` · ${countryName(o.country)}`}
                   {!o.active ? " (closed)" : ""}
                 </option>
               ))}
@@ -75,6 +109,10 @@ export default async function Applicants({
             <div>
               <Badge tone="blue">{opening.active ? "Open for applicants" : "Closed"}</Badge>
               <h2>{opening.title}</h2>
+              <p>
+                {countryName(opening.country)} · {opening.city} · {opening.workplace.toLowerCase()}{" "}
+                · {payLabel(opening)}
+              </p>
               <p className="hiring-prewrap">{opening.description}</p>
               <div className="employee-skills">
                 {opening.requiredSkills.map((skill) => (
@@ -88,6 +126,11 @@ export default async function Applicants({
                 {opening.requiredAvailability.join(", ") || "No availability requirement"} ·{" "}
                 {applicants.length} total applicants
               </p>
+              <HiringPublication
+                id={opening.id}
+                active={opening.active}
+                published={opening.published}
+              />
             </div>
           </section>
           <div className="section-title">
@@ -159,6 +202,7 @@ export default async function Applicants({
             </div>
             <form method="get" className="hiring-filter">
               <input type="hidden" name="opening" value={opening.id} />
+              <input type="hidden" name="country" value={params.country || ""} />
               <label>
                 Search applicants
                 <input
@@ -180,6 +224,15 @@ export default async function Applicants({
                 </select>
               </label>
               <button className="button secondary">Search</button>
+              <label>
+                Source
+                <select name="source" defaultValue={params.source || ""}>
+                  <option value="">All sources</option>
+                  {[...new Set(applicants.map((a) => a.source))].sort().map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+              </label>
               <Link href={`/app/employees/applicants?opening=${opening.id}`}>Clear</Link>
             </form>
             <div className="hiring-table-wrap">
@@ -188,6 +241,7 @@ export default async function Applicants({
                   <tr>
                     <th>Applicant</th>
                     <th>Stage</th>
+                    <th>Location / source</th>
                     <th>Match</th>
                     <th>Skills</th>
                     <th>Applied</th>
@@ -205,6 +259,11 @@ export default async function Applicants({
                         <Badge tone={a.status === "HIRED" ? "green" : "slate"}>
                           {a.status.toLowerCase()}
                         </Badge>
+                      </td>
+                      <td>
+                        {countryName(a.country)}
+                        {a.city ? ` · ${a.city}` : ""}
+                        <small>{a.source}</small>
                       </td>
                       <td>{candidateFit(opening, a).score ?? "—"}%</td>
                       <td>{a.skills.join(", ") || "Not recorded"}</td>
@@ -233,9 +292,10 @@ export default async function Applicants({
           {opening.active && (
             <details className="card hiring-create" open={!applicants.length}>
               <summary>Add applicant</summary>
-              <ApplicantForm openingId={opening.id} />
+              <ApplicantForm openingId={opening.id} initialCountry={opening.country} />
             </details>
           )}
+          {opening.active && <ApplicantImport openingId={opening.id} />}
         </>
       )}
     </>

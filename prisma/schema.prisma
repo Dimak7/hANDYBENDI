@@ -375,6 +375,16 @@ model HiringOpening {
   minimumYears Int @default(0)
   requiredAvailability String[] @default([])
   active Boolean @default(true)
+  country String @default("US")
+  city String @default("Chicago")
+  workplace String @default("ONSITE")
+  currency String @default("USD")
+  salaryMin Int?
+  salaryMax Int?
+  salaryPeriod String @default("HOUR")
+  language String @default("en")
+  questions String[] @default([])
+  published Boolean @default(false)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   applicants Applicant[]
 }
@@ -392,6 +402,10 @@ model Applicant {
   resumeText String @default("")
   source String @default("Office entry")
   notes String @default("")
+  country String @default("US")
+  city String @default("")
+  answers Json @default("{}")
+  consentAt DateTime? @db.Timestamptz(3)
   status ApplicantStatus @default(NEW)
   version Int @default(0)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
