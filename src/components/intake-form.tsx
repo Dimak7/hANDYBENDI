@@ -96,6 +96,7 @@ export function IntakeForm({
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<number | null>(null);
   const [token, setToken] = useState("");
+  const [securityVersion, setSecurityVersion] = useState(0);
   const [submissionKey] = useState(() => crypto.randomUUID());
   if (result)
     return (
@@ -190,6 +191,8 @@ export function IntakeForm({
           window.scrollTo({ top: 0, behavior: "smooth" });
         } catch (e) {
           setError((e as Error).message);
+          setToken("");
+          setSecurityVersion((v) => v + 1);
         } finally {
           setPending(false);
         }
@@ -512,8 +515,13 @@ export function IntakeForm({
           Leave blank
           <input name="website" tabIndex={-1} autoComplete="off" />
         </label>
-        {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && <SecurityCheck onToken={setToken} />}
-        <button className="button primary" disabled={pending}>
+        {step === 2 && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
+          <SecurityCheck key={securityVersion} onToken={setToken} />
+        )}
+        <button
+          className="button primary"
+          disabled={pending || Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !token)}
+        >
           <Send size={15} />
           {pending ? "Sending your request…" : "Send my service request"}
           <ArrowUpRight size={15} />
