@@ -105,6 +105,40 @@ assert.ok((await image.arrayBuffer()).byteLength > 0);
 results.push(
   `Quote HB-${lead.number}: persisted, idempotent retry, private S3 photo download: pass`,
 );
+const estimateResponse = await send(
+  "/api/estimates",
+  json({
+    leadId,
+    items: [
+      { description: "FICTIONAL STAGING VERIFICATION ONLY", quantity: 1, unitPriceCents: 100 },
+    ],
+    discountCents: 0,
+    taxBps: 0,
+    terms: "Fictional staging test. No real work, charge, or appointment is agreed.",
+    validDays: 1,
+  }),
+);
+assert.equal(estimateResponse.status, 201);
+const estimate = await estimateResponse.json();
+const shared = await send(`/api/estimates/${estimate.id}/share`, { method: "POST" });
+assert.equal(shared.status, 200);
+const sharedData = await shared.json();
+assert.equal(sharedData.emailQueued, false, "Staging must not send real customer mail");
+const token = new URL(sharedData.url).pathname.split("/").pop();
+assert.equal((await send(`/estimate/${token}`, {}, false)).status, 200);
+const approved = await send(
+  `/api/estimate/${token}/approve`,
+  json({ name: "FICTIONAL STAGING TEST SIGNER", accept: true }),
+  false,
+);
+assert.equal(approved.status, 200);
+const jobResponse = await send("/api/jobs", json({ estimateId: estimate.id }));
+assert.equal(jobResponse.status, 201);
+const job = await jobResponse.json();
+assert.equal((await send(`/app/jobs/${job.id}`)).status, 200);
+results.push(
+  "Estimate draft, private approval, guest approval and unscheduled job creation: pass (no payment or email)",
+);
 await writeFile(
   "artifacts/staging-verification.json",
   JSON.stringify(

@@ -3,6 +3,11 @@ import { IntakeForm } from "@/components/intake-form";
 import { db } from "@/lib/db";
 import { photosEnabled } from "@/lib/photos";
 export const dynamic = "force-dynamic";
+export const metadata = {
+  title: "Build your repair list | Request a Chicago handyman quote",
+  description:
+    "Choose your services, add tasks and photos, and request a written HandyBandi estimate for your Chicago home or business.",
+};
 export default async function RequestQuote({
   searchParams,
 }: {

@@ -10,3 +10,4 @@ coverage/
 artifacts/
 .private-uploads/
 docs/PRODUCT-BRIEF.md
+next-env.d.ts
