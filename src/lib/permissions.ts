@@ -7,6 +7,8 @@ export type Capability =
   | "dispatch:read"
   | "employees:read"
   | "hiring:write"
+  | "marketing:read"
+  | "marketing:write"
   | "settings:write";
 const grants: Record<Role, Capability[]> = {
   OWNER: [
@@ -17,6 +19,8 @@ const grants: Record<Role, Capability[]> = {
     "dispatch:read",
     "employees:read",
     "hiring:write",
+    "marketing:read",
+    "marketing:write",
     "settings:write",
   ],
   MANAGER: [
@@ -27,6 +31,8 @@ const grants: Record<Role, Capability[]> = {
     "dispatch:read",
     "employees:read",
     "hiring:write",
+    "marketing:read",
+    "marketing:write",
   ],
   DISPATCHER: ["crm:read", "crm:write", "dispatch:read"],
   ESTIMATOR: ["crm:read", "crm:write", "estimate:write"],

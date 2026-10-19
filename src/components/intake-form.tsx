@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Script from "next/script";
 import { ArrowUpRight, Check, Home, Building2, Send } from "lucide-react";
+import { currentAttribution } from "@/lib/attribution";
 declare global {
   interface Window {
     turnstile?: {
@@ -147,7 +148,7 @@ export function IntakeForm({
         setError("");
         const f = new FormData(e.currentTarget);
         const str = (key: string) => String(f.get(key) || "");
-        const utm = new URLSearchParams(window.location.search);
+        const attribution = currentAttribution(window.location.search);
         try {
           const data = {
             name: str("name"),
@@ -173,9 +174,7 @@ export function IntakeForm({
             smsConsent: f.get("smsConsent") === "on",
             emailMarketingConsent: f.get("emailMarketingConsent") === "on",
             source: "website",
-            utmSource: utm.get("utm_source") || undefined,
-            utmMedium: utm.get("utm_medium") || undefined,
-            utmCampaign: utm.get("utm_campaign") || undefined,
+            ...attribution,
             submissionKey,
             website: str("website"),
             turnstileToken: token,

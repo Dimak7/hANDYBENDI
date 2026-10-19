@@ -47,6 +47,28 @@ export default async function Overview({
         </span>
       </div>
       <section className="pro-open-section">
+        <nav className="workspace-shortcuts" aria-label="Quick actions">
+          <Link href="/app/leads">
+            <strong>Manage work</strong>
+            <span>Requests, estimates & jobs →</span>
+          </Link>
+          <Link href="/app/schedule">
+            <strong>Plan the day</strong>
+            <span>Team schedule & assignments →</span>
+          </Link>
+          {can(user.role, "hiring:write") && (
+            <Link href="/app/employees/applicants">
+              <strong>Find your next hire</strong>
+              <span>Locations, positions & top picks →</span>
+            </Link>
+          )}
+          {can(user.role, "marketing:read") && (
+            <Link href="/app/marketing">
+              <strong>Understand marketing</strong>
+              <span>Campaigns, requests & spend →</span>
+            </Link>
+          )}
+        </nav>
         <div className="pro-section-heading">
           <h2>Open items</h2>
           <span>What needs your attention</span>
@@ -120,80 +142,83 @@ export default async function Overview({
           ))}
         </div>
       </section>
-      <section className="pro-stats-section">
-        <div className="pro-section-heading">
-          <h2>Business stats</h2>
-          <nav className="pro-period-selector" aria-label="Statistics period">
+      <details className="workspace-secondary">
+        <summary>Business performance</summary>
+        <section className="pro-stats-section">
+          <div className="pro-section-heading">
+            <h2>Business stats</h2>
+            <nav className="pro-period-selector" aria-label="Statistics period">
+              {[
+                { key: "today", label: "Today" },
+                { key: "week", label: "Week to date" },
+                { key: "month", label: "Month to date" },
+                { key: "quarter", label: "Quarter to date" },
+              ].map((t) => (
+                <Link
+                  key={t.key}
+                  href={`?period=${t.key}`}
+                  className={period === t.key ? "selected" : ""}
+                >
+                  {t.label}
+                </Link>
+              ))}
+            </nav>
+            <Link className="pro-report-link" href="/app/reports">
+              View reporting
+              <ArrowUpRight size={14} />
+            </Link>
+          </div>
+          <div className="pro-stat-grid">
             {[
-              { key: "today", label: "Today" },
-              { key: "week", label: "Week to date" },
-              { key: "month", label: "Month to date" },
-              { key: "quarter", label: "Quarter to date" },
-            ].map((t) => (
-              <Link
-                key={t.key}
-                href={`?period=${t.key}`}
-                className={period === t.key ? "selected" : ""}
-              >
-                {t.label}
-              </Link>
+              {
+                label: "Net collected",
+                value: money(d.collected),
+                definition: "Payments received minus refunds issued during the selected period.",
+                icon: CircleDollarSign,
+              },
+              {
+                label: "Jobs completed",
+                value: String(d.completed),
+                definition: "Jobs with a recorded completed transition during the selected period.",
+                icon: CircleCheck,
+              },
+              {
+                label: "Average completed job",
+                value: money(d.completed ? Math.round(d.completedValue / d.completed) : 0),
+                definition:
+                  "Agreed job value divided by jobs completed in the selected period; not collected revenue.",
+                icon: BriefcaseBusiness,
+              },
+              {
+                label: "New jobs booked",
+                value: String(d.newJobs),
+                definition: "Jobs created during the selected period.",
+                icon: CalendarDays,
+              },
+              {
+                label: "Estimate conversion",
+                value: `${d.sent ? Math.round((d.approved / d.sent) * 100) : 0}%`,
+                definition:
+                  "Currently approved estimates divided by estimates sent in the selected period.",
+                icon: ClipboardList,
+              },
+            ].map((s) => (
+              <article className="pro-stat-card" key={s.label}>
+                <div>
+                  <span>{s.label}</span>
+                  <Info size={13} aria-label={s.definition}>
+                    <title>{s.definition}</title>
+                  </Info>
+                </div>
+                <strong>{s.value}</strong>
+                <span className="pro-stat-period">
+                  {date(d.start)} – {date(d.day.start)}
+                </span>
+              </article>
             ))}
-          </nav>
-          <Link className="pro-report-link" href="/app/reports">
-            View reporting
-            <ArrowUpRight size={14} />
-          </Link>
-        </div>
-        <div className="pro-stat-grid">
-          {[
-            {
-              label: "Net collected",
-              value: money(d.collected),
-              definition: "Payments received minus refunds issued during the selected period.",
-              icon: CircleDollarSign,
-            },
-            {
-              label: "Jobs completed",
-              value: String(d.completed),
-              definition: "Jobs with a recorded completed transition during the selected period.",
-              icon: CircleCheck,
-            },
-            {
-              label: "Average completed job",
-              value: money(d.completed ? Math.round(d.completedValue / d.completed) : 0),
-              definition:
-                "Agreed job value divided by jobs completed in the selected period; not collected revenue.",
-              icon: BriefcaseBusiness,
-            },
-            {
-              label: "New jobs booked",
-              value: String(d.newJobs),
-              definition: "Jobs created during the selected period.",
-              icon: CalendarDays,
-            },
-            {
-              label: "Estimate conversion",
-              value: `${d.sent ? Math.round((d.approved / d.sent) * 100) : 0}%`,
-              definition:
-                "Currently approved estimates divided by estimates sent in the selected period.",
-              icon: ClipboardList,
-            },
-          ].map((s) => (
-            <article className="pro-stat-card" key={s.label}>
-              <div>
-                <span>{s.label}</span>
-                <Info size={13} aria-label={s.definition}>
-                  <title>{s.definition}</title>
-                </Info>
-              </div>
-              <strong>{s.value}</strong>
-              <span className="pro-stat-period">
-                {date(d.start)} – {date(d.day.start)}
-              </span>
-            </article>
-          ))}
-        </div>
-      </section>
+          </div>
+        </section>
+      </details>
       <div className="pro-home-columns">
         <div>
           <EmployeeStatus

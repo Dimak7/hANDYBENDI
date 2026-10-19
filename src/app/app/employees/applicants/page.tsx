@@ -3,11 +3,12 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { PageHeader, Badge, Empty } from "@/components/ui";
 import { TeamTabs } from "@/components/team-tabs";
-import { OpeningForm, ApplicantForm } from "@/components/hiring-forms";
+import { ApplicantForm } from "@/components/hiring-forms";
 import { candidateFit, rankCandidates, applicantStatuses } from "@/lib/hiring-score";
 import { initials, date } from "@/lib/format";
 import { HiringPublication, ApplicantImport } from "@/components/hiring-publication";
 import { countryName, payLabel } from "@/lib/hiring-display";
+import { HiringBoard } from "@/components/hiring-board";
 export default async function Applicants({
   searchParams,
 }: {
@@ -17,10 +18,29 @@ export default async function Applicants({
     status?: string;
     country?: string;
     source?: string;
+    location?: string;
+    position?: string;
+    show?: string;
   }>;
 }) {
   await requireUser("hiring:write");
   const params = await searchParams;
+  if (!params.opening)
+    return (
+      <>
+        <PageHeader
+          title="Applicants & hiring"
+          description="Browse positions by location, then open a post to see its applicants and top picks."
+        />
+        <TeamTabs active="applicants" />
+        <HiringBoard
+          country={params.country}
+          location={params.location}
+          position={params.position}
+          show={params.show}
+        />
+      </>
+    );
   const openings = await db.hiringOpening.findMany({
     where: ["US", "KZ"].includes(params.country || "") ? { country: params.country } : {},
     orderBy: { createdAt: "desc" },
@@ -53,6 +73,9 @@ export default async function Applicants({
         description="All applicant profiles and your top three matches, inside your people workspace."
       />
       <TeamTabs active="applicants" />
+      <Link className="button secondary" href="/app/employees/applicants">
+        ← All locations & positions
+      </Link>
       <div className="hiring-toolbar">
         <Link className="button secondary" href="/app/employees/applicants/inbox">
           All markets · applicant inbox
@@ -64,38 +87,6 @@ export default async function Applicants({
           Public careers page
         </Link>
       </div>
-      <div className="hiring-toolbar">
-        <form method="get" className="hiring-opening-picker">
-          <label>
-            Hiring market
-            <select name="country" defaultValue={params.country || ""}>
-              <option value="">All markets</option>
-              <option value="US">United States</option>
-              <option value="KZ">Kazakhstan</option>
-            </select>
-          </label>
-          <label>
-            Hiring opening
-            <select name="opening" defaultValue={opening?.id || ""} disabled={!openings.length}>
-              {!openings.length && <option value="">No openings yet</option>}
-              {openings.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.title}
-                  {` · ${countryName(o.country)}`}
-                  {!o.active ? " (closed)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button className="button secondary" disabled={!openings.length}>
-            View opening
-          </button>
-        </form>
-        <Link href="/app/employees" className="button secondary">
-          Employee directory
-        </Link>
-      </div>
-      <OpeningForm />
       {!opening ? (
         <section className="card">
           <Empty

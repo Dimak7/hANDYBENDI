@@ -5,11 +5,13 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { ArrowUpRight, Menu, X, Phone } from "lucide-react";
 import { phone, phoneHref } from "@/lib/public-content";
+import { captureAttribution } from "@/lib/attribution";
 export function PublicHeader() {
   const [open, setOpen] = useState(false);
   const path = usePathname();
   useEffect(() => {
     setOpen(false);
+    captureAttribution(window.location.search);
   }, [path]);
   useEffect(() => {
     const close = (e: KeyboardEvent) => {

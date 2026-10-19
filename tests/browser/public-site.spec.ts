@@ -49,6 +49,10 @@ test("repair list submits multiple tasks and private validated photos into the C
   const marker = randomUUID().slice(0, 8);
   const email = `photos-${marker}@example.test`;
   try {
+    await page.goto(`/?utm_source=test-${marker}&utm_medium=social&utm_campaign=repair-${marker}`);
+    await expect
+      .poll(() => page.evaluate(() => sessionStorage.getItem("handybandi-attribution")))
+      .toContain(`test-${marker}`);
     await page.goto("/request-quote?service=tv-mounting&type=COMMERCIAL");
     await expect(page.getByRole("radio", { name: "Commercial", exact: true })).toBeChecked();
     await page.getByLabel("TV mounting", { exact: true }).check();
@@ -78,6 +82,8 @@ test("repair list submits multiple tasks and private validated photos into the C
     });
     expect(lead.description).toContain("Assemble a fictional desk.");
     expect(lead.photos).toHaveLength(1);
+    expect(lead.utmSource).toBe(`test-${marker}`);
+    expect(lead.utmCampaign).toBe(`repair-${marker}`);
     expect((await request.get(`/api/photos/${lead.photos[0].id}`)).status()).toBe(401);
     const login = await page.request.post("/api/auth/sign-in/email", {
       headers: { Origin: process.env.BETTER_AUTH_URL! },

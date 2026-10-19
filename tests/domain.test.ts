@@ -143,3 +143,44 @@ test("applicant CSV handles quoted content and rejects malformed or oversized im
   assert.throws(() => parseApplicantCsv("name,email,phone,experience\na,b,c"), /wrong number/);
   assert.throws(() => parseApplicantCsv("x".repeat(24001)), /24 KB/);
 });
+
+test("marketing summarizes each request once and joins only matching source/campaign spend", async () => {
+  const { summarizeMarketing } = await import("../src/lib/marketing");
+  const a = summarizeMarketing(
+    [
+      {
+        utmSource: " Google ",
+        source: "website",
+        utmCampaign: "Spring",
+        estimates: [{ status: "APPROVED" }, { status: "APPROVED" }],
+        jobs: [{ id: "a" }],
+      },
+      { utmSource: null, source: "Referral", utmCampaign: null, estimates: [], jobs: [] },
+    ],
+    [
+      { source: "google", campaign: "spring", amountCents: 2500 },
+      { source: "google", campaign: "other", amountCents: 1000 },
+      { source: "facebook", campaign: "spring", amountCents: 500 },
+    ],
+  );
+  assert.equal(a.leads, 2);
+  assert.equal(a.approved, 1);
+  assert.equal(a.spendCents, 4000);
+  assert.equal(a.tagged, 1);
+  assert.equal(
+    a.campaigns.find((c) => c.source === "google" && c.campaign === "spring")?.spendCents,
+    2500,
+  );
+  assert.equal(a.campaigns.find((c) => c.source === "facebook")?.leads, 0);
+  assert.equal(a.sources.find((c) => c.source === "referral")?.spendEntries, 0);
+  assert.equal(can("DISPATCHER", "marketing:read"), false);
+  assert.equal(can("MANAGER", "marketing:write"), true);
+});
+test("campaign attribution trims and bounds query values without accepting arbitrary fields", async () => {
+  const { attributionFromSearch } = await import("../src/lib/attribution");
+  assert.deepEqual(
+    attributionFromSearch("?utm_source=google&utm_medium=cpc&utm_campaign=repair&email=secret"),
+    { utmSource: "google", utmMedium: "cpc", utmCampaign: "repair" },
+  );
+  assert.equal(attributionFromSearch("?utm_source=" + "a".repeat(500)).utmSource?.length, 100);
+});

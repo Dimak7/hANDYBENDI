@@ -1,5 +1,7 @@
 # Hiring in one HandyBandi workspace
 
+The landing page now groups job posts by country and city, with filters for location, position title, and open/closed status. Counts reflect the filtered posts. Click any position card to see that post's applicants and top-three shortlist. Use **All applicant profiles** for the combined inbox. **Hiring** is directly accessible in the main navigation.
+
 Open **Employees → Applicants & hiring** at `/app/employees/applicants`. Only active owners and managers can access applicant data, imports, publication controls, or the cross-market inbox. Each API checks permissions on the server.
 
 ## United States and Kazakhstan

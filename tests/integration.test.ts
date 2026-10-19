@@ -545,3 +545,45 @@ test("international careers publication, screening answers and duplicate safety"
     false,
   );
 });
+
+test("marketing spend is persisted with idempotent retries, validation and an audit trail", async () => {
+  const { createMarketingSpend, removeMarketingSpend } = await import("../src/lib/marketing");
+  const submissionKey = randomUUID();
+  const data = {
+    source: " Google ",
+    campaign: " Spring ",
+    spentOn: "2026-10-19",
+    amountCents: 2500,
+    note: "Fictional spend for test only",
+    submissionKey,
+  };
+  const [a, b] = await Promise.all([
+    createMarketingSpend(data, id),
+    createMarketingSpend(data, id),
+  ]);
+  assert.equal(a.id, b.id);
+  assert.equal(a.source, "google");
+  assert.equal(a.campaign, "spring");
+  assert.equal(
+    await db.auditLog.count({
+      where: { entity: "MarketingSpend", entityId: a.id, action: "CREATED" },
+    }),
+    1,
+  );
+  await createMarketingSpend({ ...data, amountCents: 9999 }, id);
+  assert.equal(
+    (await db.marketingSpend.findUniqueOrThrow({ where: { id: a.id } })).amountCents,
+    2500,
+  );
+  await assert.rejects(() =>
+    createMarketingSpend({ ...data, submissionKey: randomUUID(), amountCents: -1 }, id),
+  );
+  await removeMarketingSpend(a.id, id);
+  assert.equal(await db.marketingSpend.count({ where: { id: a.id } }), 0);
+  assert.equal(
+    await db.auditLog.count({
+      where: { entity: "MarketingSpend", entityId: a.id, action: "DELETED" },
+    }),
+    1,
+  );
+});

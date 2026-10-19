@@ -33,7 +33,7 @@ test("authenticated technician permissions and disabled access are checked on th
     });
     expect(signed.status()).toBe(200);
     expect((await request.get("/api/export?type=customers")).status()).toBe(403);
-    for (const url of ["/api/hiring/openings", "/api/hiring/applicants"]) {
+    for (const url of ["/api/hiring/openings", "/api/hiring/applicants", "/api/marketing/spend"]) {
       expect(
         (
           await request.post(url, { headers: { Origin: process.env.BETTER_AUTH_URL! }, data: {} })

@@ -622,3 +622,15 @@ model BusinessSettings {
   pricingVerified Boolean @default(false)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }
+
+model MarketingSpend {
+  id String @id @default(cuid())
+  source String
+  campaign String @default("")
+  spentOn DateTime @db.Date
+  amountCents Int
+  note String @default("")
+  submissionKey String @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([spentOn, source, campaign])
+}

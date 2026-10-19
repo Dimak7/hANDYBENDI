@@ -24,6 +24,7 @@ import {
   BriefcaseBusiness,
   ReceiptText,
   HardHat,
+  Megaphone,
 } from "lucide-react";
 import { createAuthClient } from "better-auth/react";
 import type { Role } from "@prisma/client";
@@ -34,20 +35,21 @@ const navigation = [
   { href: "/app", label: "Home", icon: Home, cap: "finance:read" },
   { href: "/app/schedule", label: "Schedule", icon: CalendarDays, cap: "dispatch:read" },
   { href: "/app/customers", label: "Customers", icon: Users, cap: "crm:read" },
-  { href: "/app/leads", label: "Pipeline", icon: Columns3, cap: "crm:read" },
-  { href: "/app/reports", label: "Reporting", icon: ChartNoAxesCombined, cap: "finance:read" },
+  { href: "/app/leads", label: "Work", icon: Columns3, cap: "crm:read" },
+  { href: "/app/employees/applicants", label: "Hiring", icon: HardHat, cap: "hiring:write" },
+  { href: "/app/marketing", label: "Marketing", icon: Megaphone, cap: "marketing:read" },
 ] as const;
 const extra = [
+  {
+    href: "/app/reports",
+    label: "Reports & finances",
+    icon: ChartNoAxesCombined,
+    cap: "finance:read",
+  },
   { href: "/app/jobs", label: "Jobs", icon: BriefcaseBusiness, cap: "dispatch:read" },
   { href: "/app/estimates", label: "Estimates", icon: FileText, cap: "crm:read" },
   { href: "/app/invoices", label: "Invoices", icon: ReceiptText, cap: "finance:read" },
   { href: "/app/employees", label: "Team", icon: HardHat, cap: "employees:read" },
-  {
-    href: "/app/employees/applicants",
-    label: "Applicants & hiring",
-    icon: Users,
-    cap: "hiring:write",
-  },
   { href: "/app/settings", label: "Settings & price book", icon: Settings, cap: "settings:write" },
 ] as const;
 
@@ -71,11 +73,15 @@ export function Shell({
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, []);
+  useEffect(() => setPanel(null), [path]);
   const toggle = (name: string) => setPanel(panel === name ? null : name);
   const permitted = navigation.filter(
     (n) => can(user.role, n.cap) && (n.href !== "/app" || can(user.role, "crm:read")),
   );
   const other = extra.filter((n) => can(user.role, n.cap));
+  const primaryActive = permitted.some((n) =>
+    n.href === "/app" ? path === n.href : path.startsWith(n.href),
+  );
   const customerWorkspace = ["/app/customers", "/app/jobs", "/app/estimates", "/app/invoices"].some(
     (href) => path.startsWith(href),
   );
@@ -101,7 +107,10 @@ export function Shell({
             <Link
               key={href}
               href={href}
-              aria-label={label === "Pipeline" ? "CRM & leads" : undefined}
+              aria-label={label === "Work" ? "CRM & leads" : undefined}
+              aria-current={
+                (href === "/app" ? path === href : path.startsWith(href)) ? "page" : undefined
+              }
               className={cn(
                 "pro-nav-item",
                 (href === "/app"
@@ -119,10 +128,12 @@ export function Shell({
             className={cn(
               "pro-nav-item",
               (panel === "more" ||
-                other.some(
-                  (n) =>
-                    path.startsWith(n.href) && (!customerWorkspace || !can(user.role, "crm:read")),
-                )) &&
+                (!primaryActive &&
+                  other.some(
+                    (n) =>
+                      path.startsWith(n.href) &&
+                      (!customerWorkspace || !can(user.role, "crm:read")),
+                  ))) &&
                 "selected",
             )}
             onClick={() => toggle("more")}
@@ -192,7 +203,7 @@ export function Shell({
             <Link
               key={href}
               href={href}
-              aria-label={label === "Pipeline" ? "CRM & leads" : undefined}
+              aria-label={label === "Work" ? "CRM & leads" : undefined}
               className={cn("pro-drawer-link", path === href && "selected")}
               onClick={() => setPanel(null)}
             >
