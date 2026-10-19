@@ -11,8 +11,7 @@ import {
 import { HttpError } from "./http";
 export type StoredPhoto = { storageKey: string; backend: "LOCAL" | "S3"; size: number };
 // Development-only runtime objects must never be bundled into the deployed server.
-const directory = () =>
-  resolve(/* turbopackIgnore: true */ process.env.UPLOAD_DIR || ".private-uploads");
+const directory = () => resolve(process.cwd(), ".private-uploads");
 function client() {
   return new S3Client({
     region: process.env.S3_REGION || "auto",
