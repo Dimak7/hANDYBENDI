@@ -1,0 +1,610 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+enum Role {
+  OWNER
+  MANAGER
+  DISPATCHER
+  ESTIMATOR
+  TECHNICIAN
+  ACCOUNTING
+  ACCOUNT_MANAGER
+  CUSTOMER
+  PROPERTY_MANAGER
+}
+enum LeadStatus {
+  NEW
+  CONTACTED
+  INSPECTION
+  ESTIMATE_SENT
+  FOLLOW_UP
+  APPROVED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  LOST
+  CANCELED
+}
+enum AccountType {
+  RESIDENTIAL
+  COMMERCIAL
+}
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+enum EstimateStatus {
+  DRAFT
+  SENT
+  APPROVED
+  DECLINED
+  EXPIRED
+}
+enum JobStatus {
+  UNASSIGNED
+  ASSIGNED
+  ACCEPTED
+  TRAVELING
+  ARRIVED
+  IN_PROGRESS
+  WAITING_APPROVAL
+  COMPLETED
+  SIGNED_OFF
+  CLOSED
+  CANCELED
+}
+model User {
+  id String @id
+  name String
+  email String @unique
+  emailVerified Boolean @default(false)
+  image String?
+  role Role @default(CUSTOMER)
+  active Boolean @default(true)
+  customerId String?
+  customer Customer? @relation(fields: [customerId], references: [id])
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  sessions Session[]
+  accounts Account[]
+  employee Employee?
+  activities LeadActivity[]
+  auditLogs AuditLog[]
+  notifications Notification[]
+  ownedLeads Lead[]
+  propertyAccess PropertyAccess[]
+}
+model Session {
+  id String @id
+  expiresAt DateTime @db.Timestamptz(3)
+  token String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+model Account {
+  id String @id
+  accountId String
+  providerId String
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken String?
+  refreshToken String?
+  idToken String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope String?
+  password String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+model Verification {
+  id String @id
+  identifier String
+  value String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([identifier])
+}
+model RateLimit {
+  id String @id @default(cuid())
+  key String @unique
+  count Int
+  lastRequest BigInt
+}
+model Customer {
+  id String @id @default(cuid())
+  number Int @unique @default(autoincrement())
+  name String
+  email String @unique
+  phone String
+  type AccountType @default(RESIDENTIAL)
+  company String?
+  tags String[] @default([])
+  source String @default("website")
+  demo Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  properties Property[]
+  leads Lead[]
+  estimates Estimate[]
+  jobs Job[]
+  invoices Invoice[]
+  users User[]
+  consents Consent[]
+  commercialAccount CommercialAccount?
+  @@index([type, createdAt])
+}
+model Consent {
+  id String @id @default(cuid())
+  customerId String
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  channel String
+  purpose String
+  granted Boolean
+  source String
+  policyVersion String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([customerId, channel, purpose, createdAt])
+}
+model CommercialAccount {
+  id String @id @default(cuid())
+  customerId String @unique
+  customer Customer @relation(fields: [customerId], references: [id])
+  name String
+  netDays Int @default(30)
+  approvalLimitCents Int?
+  purchaseOrderRequired Boolean @default(false)
+  properties Property[]
+}
+model Property {
+  id String @id @default(cuid())
+  customerId String
+  customer Customer @relation(fields: [customerId], references: [id])
+  commercialAccountId String?
+  commercialAccount CommercialAccount? @relation(fields: [commercialAccountId], references: [id])
+  address String
+  unit String?
+  city String @default("Chicago")
+  state String @default("IL")
+  postalCode String
+  accessInstructions String?
+  leads Lead[]
+  jobs Job[]
+  access PropertyAccess[]
+  buildings Building[]
+  @@index([customerId])
+}
+model PropertyAccess {
+  userId String
+  propertyId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  @@id([userId, propertyId])
+}
+model Building {
+  id String @id @default(cuid())
+  propertyId String
+  property Property @relation(fields: [propertyId], references: [id])
+  name String
+  units Unit[]
+}
+model Unit {
+  id String @id @default(cuid())
+  buildingId String
+  building Building @relation(fields: [buildingId], references: [id])
+  label String
+  @@unique([buildingId, label])
+}
+model PipelineStage {
+  status LeadStatus @id
+  label String
+  position Int @unique
+  color String @default("slate")
+}
+model Lead {
+  id String @id @default(cuid())
+  number Int @unique @default(autoincrement())
+  customerId String
+  customer Customer @relation(fields: [customerId], references: [id])
+  propertyId String
+  property Property @relation(fields: [propertyId], references: [id])
+  title String
+  description String
+  status LeadStatus @default(NEW)
+  priority Priority @default(NORMAL)
+  ownerId String?
+  owner User? @relation(fields: [ownerId], references: [id])
+  source String @default("website")
+  utmSource String?
+  utmMedium String?
+  utmCampaign String?
+  preferredDate String?
+  preferredWindow String?
+  followUpAt DateTime? @db.Timestamptz(3)
+  contactedAt DateTime? @db.Timestamptz(3)
+  nextAction String?
+  estimatedValueCents Int @default(0)
+  tags String[] @default([])
+  version Int @default(0)
+  submissionKey String? @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  services LeadService[]
+  activities LeadActivity[]
+  estimates Estimate[]
+  jobs Job[]
+  @@index([status, createdAt])
+  photos LeadPhoto[]
+  @@index([ownerId, followUpAt])
+  @@index([customerId])
+}
+model LeadPhoto {
+  id String @id @default(cuid())
+  leadId String
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  storageKey String @unique
+  backend String
+  size Int
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([leadId])
+}
+model ServiceCategory {
+  id String @id @default(cuid())
+  name String @unique
+  services Service[]
+}
+model Service {
+  id String @id @default(cuid())
+  categoryId String
+  category ServiceCategory @relation(fields: [categoryId], references: [id])
+  name String
+  slug String @unique
+  description String
+  pricingMode String @default("QUOTE")
+  startingPriceCents Int?
+  reviewRequired Boolean @default(true)
+  licensingReview Boolean @default(false)
+  active Boolean @default(true)
+  leads LeadService[]
+}
+model LeadService {
+  leadId String
+  serviceId String
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id])
+  @@id([leadId, serviceId])
+}
+model LeadActivity {
+  id String @id @default(cuid())
+  leadId String
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  actorId String?
+  actor User? @relation(fields: [actorId], references: [id])
+  type String
+  body String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([leadId, createdAt])
+}
+model Estimate {
+  id String @id @default(cuid())
+  number Int @unique @default(autoincrement())
+  customerId String
+  customer Customer @relation(fields: [customerId], references: [id])
+  leadId String
+  lead Lead @relation(fields: [leadId], references: [id])
+  status EstimateStatus @default(DRAFT)
+  version Int @default(1)
+  subtotalCents Int
+  discountCents Int @default(0)
+  taxBps Int @default(0)
+  taxCents Int @default(0)
+  totalCents Int
+  terms String
+  expiresAt DateTime @db.Timestamptz(3)
+  tokenHash String? @unique
+  sentAt DateTime? @db.Timestamptz(3)
+  approvedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  items EstimateItem[]
+  approval EstimateApproval?
+  jobs Job[]
+  @@index([customerId, status])
+}
+model EstimateItem {
+  id String @id @default(cuid())
+  estimateId String
+  estimate Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  description String
+  quantity Int @default(1)
+  unitPriceCents Int
+  totalCents Int
+}
+model EstimateApproval {
+  id String @id @default(cuid())
+  estimateId String @unique
+  estimate Estimate @relation(fields: [estimateId], references: [id])
+  signerName String
+  acceptedTerms String
+  ipHash String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
+model Employee {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields: [userId], references: [id])
+  title String
+  phone String
+  classification String
+  active Boolean @default(true)
+  startDate DateTime @db.Date
+  territory String[] @default([])
+  skills EmployeeSkill[]
+  availability EmployeeAvailability[]
+  certifications EmployeeCertification[]
+  assignments JobAssignment[]
+  timeEntries TimeEntry[]
+}
+enum ApplicantStatus {
+  NEW
+  SCREENING
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+model HiringOpening {
+  id String @id @default(cuid())
+  title String
+  description String
+  requiredSkills String[] @default([])
+  minimumYears Int @default(0)
+  requiredAvailability String[] @default([])
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  applicants Applicant[]
+}
+model Applicant {
+  id String @id @default(cuid())
+  openingId String
+  opening HiringOpening @relation(fields: [openingId], references: [id])
+  name String
+  email String
+  phone String
+  skills String[] @default([])
+  relevantYears Int @default(0)
+  availability String[] @default([])
+  experience String
+  resumeText String @default("")
+  source String @default("Office entry")
+  notes String @default("")
+  status ApplicantStatus @default(NEW)
+  version Int @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([openingId, email])
+  @@index([openingId, status])
+}
+model EmployeeSkill {
+  id String @id @default(cuid())
+  employeeId String
+  employee Employee @relation(fields: [employeeId], references: [id])
+  skill String
+  @@unique([employeeId, skill])
+}
+model EmployeeAvailability {
+  id String @id @default(cuid())
+  employeeId String
+  employee Employee @relation(fields: [employeeId], references: [id])
+  startAt DateTime @db.Timestamptz(3)
+  endAt DateTime @db.Timestamptz(3)
+  @@index([employeeId, startAt, endAt])
+}
+model EmployeeCertification {
+  id String @id @default(cuid())
+  employeeId String
+  employee Employee @relation(fields: [employeeId], references: [id])
+  name String
+  licenseNumber String?
+  expiresAt DateTime? @db.Timestamptz(3)
+}
+model Job {
+  id String @id @default(cuid())
+  number Int @unique @default(autoincrement())
+  customerId String
+  customer Customer @relation(fields: [customerId], references: [id])
+  propertyId String
+  property Property @relation(fields: [propertyId], references: [id])
+  leadId String?
+  lead Lead? @relation(fields: [leadId], references: [id])
+  estimateId String? @unique
+  estimate Estimate? @relation(fields: [estimateId], references: [id])
+  title String
+  description String
+  status JobStatus @default(UNASSIGNED)
+  priority Priority @default(NORMAL)
+  startAt DateTime? @db.Timestamptz(3)
+  endAt DateTime? @db.Timestamptz(3)
+  quotedCents Int @default(0)
+  requiredSkills String[] @default([])
+  licensingReviewRequired Boolean @default(false)
+  licensingReviewReason String?
+  warrantyUntil DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  assignments JobAssignment[]
+  history JobStatusHistory[]
+  tasks JobTask[]
+  timeEntries TimeEntry[]
+  expenses Expense[]
+  invoices Invoice[]
+  warrantyClaims WarrantyClaim[]
+  @@index([startAt, status])
+  @@index([customerId])
+}
+model JobAssignment {
+  id String @id @default(cuid())
+  jobId String
+  job Job @relation(fields: [jobId], references: [id])
+  employeeId String
+  employee Employee @relation(fields: [employeeId], references: [id])
+  overrideReason String?
+  @@unique([jobId, employeeId])
+}
+model JobStatusHistory {
+  id String @id @default(cuid())
+  jobId String
+  job Job @relation(fields: [jobId], references: [id])
+  fromStatus JobStatus?
+  toStatus JobStatus
+  actorId String
+  reason String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
+model JobTask {
+  id String @id @default(cuid())
+  jobId String
+  job Job @relation(fields: [jobId], references: [id])
+  title String
+  completedAt DateTime? @db.Timestamptz(3)
+}
+model TimeEntry {
+  id String @id @default(cuid())
+  employeeId String
+  employee Employee @relation(fields: [employeeId], references: [id])
+  jobId String?
+  job Job? @relation(fields: [jobId], references: [id])
+  startAt DateTime @db.Timestamptz(3)
+  endAt DateTime? @db.Timestamptz(3)
+  breakMinutes Int @default(0)
+  approvedAt DateTime? @db.Timestamptz(3)
+  @@index([employeeId, startAt])
+}
+model Invoice {
+  id String @id @default(cuid())
+  number Int @unique @default(autoincrement())
+  customerId String
+  customer Customer @relation(fields: [customerId], references: [id])
+  jobId String?
+  job Job? @relation(fields: [jobId], references: [id])
+  status String @default("DRAFT")
+  subtotalCents Int
+  taxCents Int @default(0)
+  totalCents Int
+  dueAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  items InvoiceItem[]
+  payments Payment[]
+  @@index([status, dueAt])
+}
+model InvoiceItem {
+  id String @id @default(cuid())
+  invoiceId String
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+  description String
+  quantity Int
+  unitPriceCents Int
+  totalCents Int
+}
+model Payment {
+  id String @id @default(cuid())
+  invoiceId String
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+  amountCents Int
+  provider String
+  providerEventId String @unique
+  paidAt DateTime @db.Timestamptz(3)
+  refunds Refund[]
+}
+model Refund {
+  id String @id @default(cuid())
+  paymentId String
+  payment Payment @relation(fields: [paymentId], references: [id])
+  amountCents Int
+  providerEventId String @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
+model Expense {
+  id String @id @default(cuid())
+  jobId String
+  job Job @relation(fields: [jobId], references: [id])
+  category String
+  description String
+  amountCents Int
+  incurredAt DateTime @db.Timestamptz(3)
+}
+model WarrantyClaim {
+  id String @id @default(cuid())
+  jobId String
+  job Job @relation(fields: [jobId], references: [id])
+  description String
+  status String @default("REVIEW")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
+model Notification {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  title String
+  body String
+  href String
+  readAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([userId, readAt])
+}
+model OutboxEvent {
+  id String @id @default(cuid())
+  dedupeKey String @unique
+  type String
+  payload Json
+  status String @default("PENDING")
+  attempts Int @default(0)
+  lastError String?
+  availableAt DateTime @default(now()) @db.Timestamptz(3)
+  lockedUntil DateTime? @db.Timestamptz(3)
+  completedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([status, availableAt])
+}
+model AuditLog {
+  id String @id @default(cuid())
+  actorId String?
+  actor User? @relation(fields: [actorId], references: [id])
+  entity String
+  entityId String
+  action String
+  details Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([entity, entityId, createdAt])
+}
+model BusinessSettings {
+  id String @id @default("business")
+  companyName String @default("HandyBandi")
+  phone String @default("(224) 486-3481")
+  email String @default("office@handybandi.com")
+  timezone String @default("America/Chicago")
+  minimumVisitCents Int @default(16900)
+  emergencyFeeCents Int @default(25000)
+  commercialMinimumCents Int @default(18000)
+  warrantyDays Int @default(30)
+  responseSlaMinutes Int @default(120)
+  appointmentBufferMinutes Int @default(30)
+  estimateTerms String @default("Scope and materials are itemized in this estimate. Additional work requires written approval. Scheduling is confirmed separately by the office.")
+  cancellationPolicy String @default("Contact the office to request cancellation or rescheduling. Any applicable terms must be confirmed in your estimate.")
+  servicePostalPrefixes String[] @default(["606", "602", "600", "603", "607"])
+  pricingVerified Boolean @default(false)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}

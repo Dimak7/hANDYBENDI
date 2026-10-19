@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.local-db/
+artifacts/
+pnpm-lock.yaml
+docs/seo-inventory.json
+docs/PRODUCT-BRIEF.md
+prisma/migrations/
+AGENTS.md

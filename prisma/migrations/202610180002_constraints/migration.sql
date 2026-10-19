@@ -1,0 +1,10 @@
+ALTER TABLE "EstimateItem" ADD CONSTRAINT "estimate_item_nonnegative" CHECK (quantity > 0 AND "unitPriceCents" >= 0 AND "totalCents" = quantity::bigint * "unitPriceCents");
+ALTER TABLE "Estimate" ADD CONSTRAINT "estimate_totals_valid" CHECK ("subtotalCents" >= 0 AND "discountCents" >= 0 AND "discountCents" <= "subtotalCents" AND "taxCents" >= 0 AND "totalCents" = "subtotalCents" - "discountCents" + "taxCents");
+ALTER TABLE "InvoiceItem" ADD CONSTRAINT "invoice_item_nonnegative" CHECK (quantity > 0 AND "unitPriceCents" >= 0 AND "totalCents" = quantity::bigint * "unitPriceCents");
+ALTER TABLE "Invoice" ADD CONSTRAINT "invoice_totals_valid" CHECK ("subtotalCents" >= 0 AND "taxCents" >= 0 AND "totalCents" = "subtotalCents" + "taxCents");
+ALTER TABLE "Payment" ADD CONSTRAINT "payment_positive" CHECK ("amountCents" > 0);
+ALTER TABLE "Refund" ADD CONSTRAINT "refund_positive" CHECK ("amountCents" > 0);
+ALTER TABLE "Job" ADD CONSTRAINT "job_window_valid" CHECK (("startAt" IS NULL AND "endAt" IS NULL) OR ("startAt" IS NOT NULL AND "endAt" IS NOT NULL AND "endAt" > "startAt"));
+ALTER TABLE "EmployeeAvailability" ADD CONSTRAINT "availability_window_valid" CHECK ("endAt" > "startAt");
+ALTER TABLE "TimeEntry" ADD CONSTRAINT "time_entry_window_valid" CHECK (("endAt" IS NULL OR "endAt" >= "startAt") AND "breakMinutes" >= 0);
+ALTER TABLE "BusinessSettings" ADD CONSTRAINT "business_settings_nonnegative" CHECK ("minimumVisitCents" >= 0 AND "emergencyFeeCents" >= 0 AND "commercialMinimumCents" >= 0 AND "warrantyDays" >= 0 AND "responseSlaMinutes" > 0 AND "appointmentBufferMinutes" >= 0);
